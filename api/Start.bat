@@ -1,0 +1,1 @@
+dotnet watch --project API run --no-hot-reload

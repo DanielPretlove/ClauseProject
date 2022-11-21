@@ -1,0 +1,247 @@
+﻿
+@page "/"
+@using Entities
+@using System.Text.Json
+@using System.Net.Http
+
+<PageTitle>Clause</PageTitle>
+
+<div class="d-flex justify-content-center align-items-center">
+    <div>
+        <h2>EngageRM Clause Exercise</h2>
+        @* <button>Reset Options</button> *@
+        <button style="position: relative; top: 0.5em; left: 8em;" @onclick="@AddLeftAndRemoveFromRight">&lt;</button>
+        <select name="Cars" size="5" style="position: relative; top: 5em; left: 2em; width: 4em" @bind="@currentLeft" @onclick="@(() => Console.WriteLine(currentLeft))" @ondblclick="@AddRightAndRemoveFromLeft">  
+            @foreach(var clauseleft in clauseLefts)
+            {
+                <option value=@clauseleft.clause>@clauseleft.clause</option>
+            }
+        </select>  
+
+        <button style="position: relative; top: 0.5em; left: 4.5em;" @onclick="@AddRightAndRemoveFromLeft" >&gt;</button>
+        <select name="Cars" size="5" style="position: relative; top: 5em; left: 4.5em; width: 4em;" @bind="@currentRight" @onclick="@(() => Console.WriteLine(currentRight))" @ondblclick="AddLeftAndRemoveFromRight" >  
+            @foreach(var clauseRight in clauseRights)
+            {
+                <option value=@clauseRight.clause>@clauseRight.clause</option>
+            }
+        </select>  
+        <br />
+
+        <button style="position: relative; top: 8em;" @onclick="@GenerateClauseText">Generate Clauses</button>
+@* 
+        @if(renderText == true)
+        { *@
+            
+                <br />
+                <textarea rows="3" cols="50" style="position: relative; top: 12em;">
+                        @outputText;
+                </textarea>
+                <br/>
+        @* } *@
+
+        <button style="position: relative; top: 0.8em; left: 10em;" @onclick="@Initializer">Reset Clauses</button>
+    </div>
+</div>
+
+
+@code {
+    private string currentLeft = "";
+    private string currentRight = "";
+    private string outputText = "";
+    private IEnumerable<ClauseLeft> clauseLefts = Array.Empty<ClauseLeft>();
+    private IEnumerable<ClauseRight> clauseRights = Array.Empty<ClauseRight>();
+    @* private IEnumerable<ClauseText> clauseTexts = Array.Empty<ClauseText>(); *@
+    private bool getBranchesError;
+    @* private bool shouldRender; *@
+
+    private bool renderText = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshData();
+    }
+
+
+    public async Task RefreshData()
+    {
+        var getAllClauseLeft = new HttpRequestMessage(HttpMethod.Get,
+            "https://localhost:7002/api/Clause/clauseLeft");
+        getAllClauseLeft.Headers.Add("Accept", "application/json");
+
+        var client = HttpClientFactory.Create();
+
+        var getAllClauseLeftResponse = await client.SendAsync(getAllClauseLeft);
+        Console.WriteLine(getAllClauseLeft);
+
+        if (getAllClauseLeftResponse.IsSuccessStatusCode)
+        {
+            using var responseStream = await getAllClauseLeftResponse.Content.ReadAsStreamAsync();
+            clauseLefts = await JsonSerializer.DeserializeAsync
+                <IEnumerable<ClauseLeft>>(responseStream);
+        }
+        else
+        {
+            getBranchesError = true;
+        }
+
+        var getAllClauseRight = new HttpRequestMessage(HttpMethod.Get,
+            "https://localhost:7002/api/Clause/clauseRight");
+        getAllClauseRight.Headers.Add("Accept", "application/json");
+
+        var getAllClauseRightResponse = await client.SendAsync(getAllClauseRight);
+        Console.WriteLine(getAllClauseRight);
+
+        if (getAllClauseRightResponse.IsSuccessStatusCode)
+        {
+            using var responseStream = await getAllClauseRightResponse.Content.ReadAsStreamAsync();
+            clauseRights = await JsonSerializer.DeserializeAsync
+                <IEnumerable<ClauseRight>>(responseStream);
+        }
+        else
+        {
+            getBranchesError = true;
+        }
+
+    }
+
+    public async Task AddRightAndRemoveFromLeft()
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, "https://localhost:7002/api/Clause/clauseRight");
+
+        var body = new { clause = currentLeft };
+        request.Headers.Add("Accept", "application/json");
+
+        request.Content = new StringContent(JsonSerializer.Serialize(body), System.Text.Encoding.UTF8, "application/json");
+        
+        var client = HttpClientFactory.Create();
+
+        var getAllClauseRightResponse = await client.SendAsync(request);
+        Console.WriteLine(request);
+
+        if (getAllClauseRightResponse.IsSuccessStatusCode)
+        {
+            using var responseStream = await getAllClauseRightResponse.Content.ReadAsStreamAsync();
+            clauseRights = await JsonSerializer.DeserializeAsync
+                <IEnumerable<ClauseRight>>(responseStream);
+        }
+        else
+        {
+            getBranchesError = true;
+        }
+
+        var deleteRequest = new HttpRequestMessage(HttpMethod.Delete, $"https://localhost:7002/api/Clause/clauseLeft/{currentLeft}");
+        deleteRequest.Headers.Add("Accept", "application/json");
+        var deleteResponse = await client.SendAsync(deleteRequest);
+
+        if (deleteResponse.IsSuccessStatusCode)
+        {
+            using var responseStream = await deleteResponse.Content.ReadAsStreamAsync();
+            clauseLefts = await JsonSerializer.DeserializeAsync
+                <IEnumerable<ClauseLeft>>(responseStream);
+        }
+        else
+        {
+            getBranchesError = true;
+        }
+
+        await RefreshData();
+    }
+
+
+    public async Task AddLeftAndRemoveFromRight()
+    {
+         var request = new HttpRequestMessage(HttpMethod.Post, "https://localhost:7002/api/Clause/clauseLeft");
+
+        var body = new { clause = currentLeft };
+        request.Headers.Add("Accept", "application/json");
+
+        request.Content = new StringContent(JsonSerializer.Serialize(body), System.Text.Encoding.UTF8, "application/json");
+        
+        var client = HttpClientFactory.Create();
+
+        var getAllClauseLeftResponse = await client.SendAsync(request);
+        Console.WriteLine(request);
+
+        if (getAllClauseLeftResponse.IsSuccessStatusCode)
+        {
+            using var responseStream = await getAllClauseLeftResponse.Content.ReadAsStreamAsync();
+            clauseLefts = await JsonSerializer.DeserializeAsync
+                <IEnumerable<ClauseLeft>>(responseStream);
+        }
+        else
+        {
+            getBranchesError = true;
+        }
+
+        var deleteRequest = new HttpRequestMessage(HttpMethod.Delete, $"https://localhost:7002/api/Clause/clauseRight/{currentLeft}");
+        deleteRequest.Headers.Add("Accept", "application/json");
+        var deleteResponse = await client.SendAsync(deleteRequest);
+
+        if (deleteResponse.IsSuccessStatusCode)
+        {
+            using var responseStream = await deleteResponse.Content.ReadAsStreamAsync();
+            clauseLefts = await JsonSerializer.DeserializeAsync
+                <IEnumerable<ClauseLeft>>(responseStream);
+        }
+        else
+        {
+            getBranchesError = true;
+        }
+
+        await RefreshData();
+    }
+
+    public async Task Initializer()
+    {
+        @* reset to old values so i guess delete all from right and text and add the left data back in if empty *@
+       var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7002/api/Clause/initializer");
+
+        request.Headers.Add("Accept", "application/json");
+        
+        var client = HttpClientFactory.Create();
+
+        var getAllClauseRightResponse = await client.SendAsync(request);
+        Console.WriteLine(request);
+
+        if (getAllClauseRightResponse.IsSuccessStatusCode)
+        {
+            using var responseStream = await getAllClauseRightResponse.Content.ReadAsStreamAsync();
+            clauseRights = await JsonSerializer.DeserializeAsync
+                <IEnumerable<ClauseRight>>(responseStream);
+        }
+        else
+        {
+            getBranchesError = true;
+        }
+    
+    }
+
+    public async Task GenerateClauseText()
+    {
+
+        foreach(ClauseRight cr in clauseRights)
+        {
+            var getClauseText = new HttpRequestMessage(HttpMethod.Get,
+                $"https://localhost:7002/api/Clause/ClauseText/{cr.clause}");
+            getClauseText.Headers.Add("Accept", "application/json");
+
+            var client = HttpClientFactory.Create();
+
+            var getClauseTextResponse = await client.SendAsync(getClauseText);
+    
+            if (getClauseTextResponse.IsSuccessStatusCode)
+            {
+                using var responseStream = await getClauseTextResponse.Content.ReadAsStreamAsync();
+                ClauseText clauseText = await JsonSerializer.DeserializeAsync
+                    <ClauseText>(responseStream);
+                
+                outputText += clauseText.text + Environment.NewLine;
+            }
+            else
+            {
+                getBranchesError = true;
+            }
+        }
+        renderText = true;
+    }
+}
